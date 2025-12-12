@@ -1,28 +1,41 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { usePathname, useRouter } from "next/navigation"
+import axios from "axios"
+import { toast } from "sonner"
+
+// UI Components
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton" // Optional: for loading state
 import { cn } from "@/lib/utils"
+
+// Icons
 import {
   Building2,
   Users,
   FileText,
   DollarSign,
-  Wrench,
   BarChart3,
   Settings,
-  Menu,
   Home,
+  Menu,
   LogOut,
-  Bell,
-  Search,
+  ChevronUp,
+  User,
 } from "lucide-react"
-import { Suspense } from "react"
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: Home },
@@ -30,123 +43,205 @@ const navigation = [
   { name: "Tenants", href: "/admin/tenants", icon: Users },
   { name: "Leases", href: "/admin/leases", icon: FileText },
   { name: "Payments", href: "/admin/payments", icon: DollarSign },
-  { name: "Maintenance", href: "/admin/maintenance", icon: Wrench },
   { name: "Reports", href: "/admin/reports", icon: BarChart3 },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
+
+interface UserData {
+  name: string
+  email: string
+  avatar?: string
+  role: string
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const pathname = usePathname()
+  const [user, setUser] = useState<UserData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className={cn("flex h-full flex-col", mobile ? "w-full" : "w-64")}>
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    localStorage.removeItem("token")
+    setUser(null)
+    toast.error("Logged out successfully.")
+    router.push("/login")
+  }
+
+  function getInitials(name: string) {
+    if (!name) return "U"
+    const parts = name.trim().split(" ")
+    return parts
+      .slice(0, 2)
+      .map((word) => word[0].toUpperCase())
+      .join("")
+  }
+
+  // ✅ Fetch user details from API
+  const fetchUser = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        handleLogout()
+        setIsLoading(false)
+        return
+      }
+
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (res.data.role !== "admin") {
+        toast.error("Access denied. Admins only.")
+        router.push("/tenant")
+        return
+      }
+
+      setUser(res.data)
+    } catch (err) {
+      console.error("Failed to fetch user", err)
+      // Optional: Handle token expiration logic here
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUser()
+    const interval = setInterval(fetchUser, 30 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+    <div className="flex h-full flex-col bg-card">
       {/* Logo */}
       <div className="flex h-16 shrink-0 items-center border-b px-6">
-        <Building2 className="h-8 w-8 text-primary" />
-        <span className="ml-2 text-xl font-bold">PropertyPro</span>
+        <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+          <Building2 className="size-4" />
+        </div>
+        <span className="ml-2 text-lg font-bold tracking-tight">PropertyPro</span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => mobile && setSidebarOpen(false)}
-              className={cn(
-                "group flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              )}
-            >
-              <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-              {item.name}
-            </Link>
-          )
-        })}
-      </nav>
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="space-y-1">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => mobile && setSidebarOpen(false)}
+                className={cn(
+                  "group flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-in-out",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
+                    isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                />
+                {item.name}
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
 
-      {/* User section */}
-      <div className="border-t p-4">
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Users className="h-4 w-4 text-primary" />
+      {/* User Section (Footer) */}
+      <div className="border-t p-3">
+        {isLoading ? (
+          <div className="flex items-center space-x-3 px-2 py-2">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-24" />
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">Admin User</p>
-            <p className="text-xs text-muted-foreground">admin@property.com</p>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" className="w-full justify-start" asChild>
-          <Link href="/">
-            <LogOut className="mr-2 h-4 w-4" />
-            Back to Home
-          </Link>
-        </Button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-2 py-6 hover:bg-accent"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <Avatar className="h-9 w-9 border">
+                    <AvatarImage src={user?.avatar} alt={user?.name} />
+                    {/* FIXED ERROR: Handled undefined name */}
+                    <AvatarFallback>{getInitials(user?.name || "")}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="truncate text-sm font-medium leading-none">
+                      {user?.name || "User"}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground mt-1">
+                      {user?.email || "No email"}
+                    </p>
+                  </div>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-56" side="right">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   )
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <div className="flex h-screen bg-background">
-        {/* Desktop sidebar */}
-        <div className="hidden lg:flex lg:flex-shrink-0">
-          <div className="flex w-64 flex-col border-r bg-card">
-            <Sidebar />
-          </div>
+    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading Layout...</div>}>
+      <div className="flex h-screen w-full bg-muted/40">
+
+        {/* Desktop Sidebar */}
+        <div className="hidden border-r bg-card lg:block lg:w-72">
+          <SidebarContent />
         </div>
 
-        {/* Mobile sidebar */}
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="w-64 p-0">
-            <Sidebar mobile />
-          </SheetContent>
-        </Sheet>
-
-        {/* Main content */}
+        {/* Main Content Area */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Top bar */}
-          <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-            <div className="flex items-center space-x-4">
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="lg:hidden">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
-                  <Sidebar mobile />
-                </SheetContent>
-              </Sheet>
-              <div className="flex items-center space-x-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Search properties, tenants...</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="h-4 w-4" />
-              </Button>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Users className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-sm font-medium">Admin</span>
-              </div>
+
+          {/* Mobile Header (Only visible on small screens) */}
+          <header className="flex h-16 items-center gap-4 border-b bg-card px-6 lg:hidden">
+            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="shrink-0">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-72">
+                <SidebarContent mobile />
+              </SheetContent>
+            </Sheet>
+            <div className="flex items-center gap-2 font-bold text-lg">
+              <Building2 className="h-6 w-6 text-primary" />
+              PropertyPro
             </div>
           </header>
 
-          {/* Page content */}
-          <main className="flex-1 overflow-auto">
-            <div className="p-6">{children}</div>
+          {/* Page Content */}
+          <main className="flex-1 overflow-auto px-4 lg:px-4 py-6">
+            <div className="mx-auto max-w-7xl">
+              {children}
+            </div>
           </main>
         </div>
+
       </div>
     </Suspense>
   )

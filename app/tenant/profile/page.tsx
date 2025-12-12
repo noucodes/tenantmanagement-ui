@@ -19,7 +19,6 @@ export default function ProfilePage() {
     notifications: {
       email: true,
       sms: false,
-      maintenance: true,
       payments: true,
       announcements: true,
     },
@@ -108,57 +107,6 @@ export default function ProfilePage() {
                   <Input id="emergency" defaultValue={userProfile.emergencyContact} />
                 </div>
                 <Button>Save Changes</Button>
-              </CardContent>
-            </Card>
-
-            {/* Notification Preferences */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="h-5 w-5" />
-                  <span>Notification Preferences</span>
-                </CardTitle>
-                <CardDescription>Choose how you want to receive notifications</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-                    </div>
-                    <Switch defaultChecked={userProfile.notifications.email} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">SMS Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive notifications via text message</p>
-                    </div>
-                    <Switch defaultChecked={userProfile.notifications.sms} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Maintenance Updates</p>
-                      <p className="text-sm text-muted-foreground">Get notified about maintenance request updates</p>
-                    </div>
-                    <Switch defaultChecked={userProfile.notifications.maintenance} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Payment Reminders</p>
-                      <p className="text-sm text-muted-foreground">Receive rent payment reminders</p>
-                    </div>
-                    <Switch defaultChecked={userProfile.notifications.payments} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Property Announcements</p>
-                      <p className="text-sm text-muted-foreground">Get notified about property announcements</p>
-                    </div>
-                    <Switch defaultChecked={userProfile.notifications.announcements} />
-                  </div>
-                </div>
-                <Button>Save Preferences</Button>
               </CardContent>
             </Card>
 

@@ -1,253 +1,132 @@
-"use client"
+'use client';
 
-import type React from "react"
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Building2, Plus, Search, Edit, Trash2, Home, MapPin } from 'lucide-react';
+import { PropertyFormValues, AddPropertyDialog } from '@/components/property-dialog';
+import { toast, Toaster } from 'sonner';
 
-import { useState } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Building2, Plus, Search, Edit, Trash2, Home, ArrowLeft, MapPin } from "lucide-react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-
-const propertyFormSchema = z.object({
-  name: z.string().min(1, "Property name is required"),
-  address: z.string().min(1, "Address is required"),
-  type: z.string().min(1, "Property type is required"),
-  totalUnits: z.string().min(1, "Total units is required"),
-  description: z.string().optional(),
-})
-
-type PropertyFormValues = z.infer<typeof propertyFormSchema>
+import { authService } from '@/services/authService';
+import api from '@/lib/api';
 
 export default function PropertiesPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [properties, setProperties] = useState([
-    {
-      id: 1,
-      name: "Sunset Apartments",
-      address: "123 Main St, Downtown",
-      totalUnits: 12,
-      occupiedUnits: 10,
-      vacantUnits: 2,
-      monthlyRevenue: 18000,
-      type: "Apartment Complex",
-    },
-    {
-      id: 2,
-      name: "Oak Street Condos",
-      address: "456 Oak St, Midtown",
-      totalUnits: 8,
-      occupiedUnits: 8,
-      vacantUnits: 0,
-      monthlyRevenue: 16000,
-      type: "Condominium",
-    },
-    {
-      id: 3,
-      name: "Pine View Townhomes",
-      address: "789 Pine Ave, Suburbs",
-      totalUnits: 16,
-      occupiedUnits: 14,
-      vacantUnits: 2,
-      monthlyRevenue: 28000,
-      type: "Townhouse",
-    },
-    {
-      id: 4,
-      name: "Riverside Lofts",
-      address: "321 River Rd, Waterfront",
-      totalUnits: 6,
-      occupiedUnits: 5,
-      vacantUnits: 1,
-      monthlyRevenue: 15000,
-      type: "Loft",
-    },
-  ])
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [properties, setProperties] = useState<Array<any>>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<PropertyFormValues | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const form = useForm<PropertyFormValues>({
-    resolver: zodResolver(propertyFormSchema),
-    defaultValues: {
-      name: "",
-      address: "",
-      type: "",
-      totalUnits: "",
-      description: "",
-    },
-  })
-
-  const onSubmit = (values: PropertyFormValues) => {
-    const newProperty = {
-      id: properties.length + 1,
-      name: values.name,
-      address: values.address,
-      type: values.type,
-      totalUnits: Number.parseInt(values.totalUnits),
-      occupiedUnits: 0,
-      vacantUnits: Number.parseInt(values.totalUnits),
-      monthlyRevenue: 0,
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      toast.error("Please login to continue");
+      router.push('/login');
+      return;
     }
+    const currentUser = authService.getCurrentUser();
+    setUser(currentUser);
+    authService.getMe().then(freshUser => setUser(freshUser)).catch(() => { });
+    getProperties();
+  }, []);
 
-    setProperties([...properties, newProperty])
-    setIsDialogOpen(false)
-    form.reset()
-  }
+  const getProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/properties');
+      const data = Array.isArray(response.data)
+        ? response.data
+        : response.data.properties || response.data.data || [];
+      setProperties(data);
+    } catch (err: any) {
+      console.error("❌ Error fetching properties:", err);
+      if (err.response?.status === 401) {
+        authService.logout();
+      } else {
+        toast.error("Failed to load properties");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async (values: PropertyFormValues, editing?: boolean) => {
+    try {
+      if (editing && values.id) {
+        await api.put(`/properties/${values.id}`, values);
+        toast.success("✅ Property updated successfully");
+      } else {
+        await api.post('/properties', values);
+        toast.success("✅ Property created successfully");
+      }
+      setIsDialogOpen(false);
+      setEditingProperty(null);
+      getProperties();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to save property");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this property?")) return;
+    try {
+      await api.delete(`/properties/${id}`);
+      toast.success("✅ Property deleted successfully");
+      setProperties(properties.filter((p) => p.id !== id));
+    } catch (err: any) {
+      toast.error("Failed to delete property");
+    }
+  };
 
   const filteredProperties = properties.filter(
     (property) =>
-      property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      property.address.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  const AddPropertyDialog = ({ children }: { children: React.ReactNode }) => (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Add New Property</DialogTitle>
-          <DialogDescription>Create a new property to start managing units and tenants.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Property Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter property name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter property address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Apartment Complex">Apartment Complex</SelectItem>
-                        <SelectItem value="Condominium">Condominium</SelectItem>
-                        <SelectItem value="Townhouse">Townhouse</SelectItem>
-                        <SelectItem value="Loft">Loft</SelectItem>
-                        <SelectItem value="Single Family">Single Family</SelectItem>
-                        <SelectItem value="Commercial">Commercial</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="totalUnits"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Total Units</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Enter property description..." className="resize-none" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Create Property</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
+      property.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.address?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      <Toaster position="top-right" />
+
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Button asChild variant="ghost">
-                <Link href="/admin">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
               <div>
                 <h1 className="text-2xl font-bold">Property Management</h1>
-                <p className="text-muted-foreground">Manage your properties and units</p>
+                <p className="text-muted-foreground">
+                  Welcome back, <span className="font-semibold text-primary">{user?.name || user?.first_name || 'Admin'}</span>
+                </p>
               </div>
             </div>
-            <AddPropertyDialog>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Property
-              </Button>
-            </AddPropertyDialog>
+            <div className="flex items-center gap-2">
+              <AddPropertyDialog
+                isOpen={isDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDialogOpen(open);
+                  if (!open) setEditingProperty(null);
+                }}
+                editingProperty={editingProperty}
+                onSave={handleSave}
+              >
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Property
+                </Button>
+              </AddPropertyDialog>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Search and Filters */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="flex items-center space-x-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -258,98 +137,100 @@ export default function PropertiesPage() {
                   className="pl-10"
                 />
               </div>
-              <Button variant="outline">Filter</Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Properties Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map((property) => (
-            <Card key={property.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Building2 className="h-6 w-6 text-primary" />
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading properties...</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && filteredProperties.length > 0 && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProperties.map((property) => (
+              <Card key={property.id} className="hover:shadow-lg transition-shadow flex flex-col">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Building2 className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">{property.name}</CardTitle>
+                        <Badge variant="outline" className="mt-1">
+                          {property.property_type || 'N/A'}
+                        </Badge>
+                      </div>
                     </div>
+                    <div className="flex space-x-1">
+                      <Button size="sm" variant="ghost" onClick={() => { setEditingProperty(property); setIsDialogOpen(true); }}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(property.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4 flex-1">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>{property.address}, {property.city}, {property.state}</span>
+                  </div>
+
+                  {/* Property Stats Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {property.total_units_count || 0}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Total Units</div>
+                    </div>
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {property.occupied_units || 0}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Occupied</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-lg">{property.name}</CardTitle>
-                      <Badge variant="outline" className="mt-1">
-                        {property.type}
-                      </Badge>
+                      <div className="text-sm text-muted-foreground">Revenue</div>
+                      <div className="text-lg font-semibold">
+                        ${(property.monthly_revenue || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">Vacant</div>
+                      <div className="text-lg font-semibold text-orange-600">
+                        {property.vacant_units || 0}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex space-x-1">
-                    <Button size="sm" variant="ghost">
-                      <Edit className="h-4 w-4" />
+
+                  {/* 👇 NEW: View Units Button */}
+                  <div className="pt-2 border-t mt-auto">
+                    <Button asChild className="w-full" variant="outline">
+                      {/* This links to your PropertyUnitsPage */}
+                      <Link href={`/admin/properties/${property.id}`}>
+                        <Home className="h-4 w-4 mr-2" />
+                        View Units
+                      </Link>
                     </Button>
-                    <Button size="sm" variant="ghost">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{property.address}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">{property.totalUnits}</div>
-                    <div className="text-xs text-muted-foreground">Total Units</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted/50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{property.occupiedUnits}</div>
-                    <div className="text-xs text-muted-foreground">Occupied</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Monthly Revenue</div>
-                    <div className="text-lg font-semibold">${property.monthlyRevenue.toLocaleString()}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Vacant Units</div>
-                    <div className="text-lg font-semibold text-orange-600">{property.vacantUnits}</div>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t">
-                  <Button asChild className="w-full bg-transparent" variant="outline">
-                    <Link href={`/admin/properties/${property.id}`}>
-                      <Home className="h-4 w-4 mr-2" />
-                      View Units
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Add Property Card */}
-        <Card className="mt-6 border-dashed border-2 hover:border-primary/50 transition-colors">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="p-4 bg-primary/10 rounded-full mb-4">
-              <Plus className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Add New Property</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Create a new property to start managing units and tenants
-            </p>
-            <AddPropertyDialog>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Property
-              </Button>
-            </AddPropertyDialog>
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }

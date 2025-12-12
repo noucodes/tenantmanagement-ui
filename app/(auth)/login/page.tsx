@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { GalleryVerticalEnd } from "lucide-react"
+import { Building2, GalleryVerticalEnd } from "lucide-react"
 import { FieldGroup, Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import axios from "axios"
 import { toast, Toaster } from "sonner"
@@ -64,9 +64,9 @@ export default function LoginPage() {
           <Toaster />
           <a href="#" className="flex items-center gap-2 font-medium">
             <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-              <GalleryVerticalEnd className="size-4" />
+              <Building2 className="size-4" />
             </div>
-            Acme Inc.
+            Property Pro.
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">

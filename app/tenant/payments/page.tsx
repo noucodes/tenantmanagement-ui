@@ -1,4 +1,8 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,76 +16,122 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog"
-import { ArrowLeft, CreditCard, DollarSign, Calendar, Download, AlertCircle, CheckCircle } from "lucide-react"
+import { ArrowLeft, CreditCard, DollarSign, Calendar, Download, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react"
+import { toast, Toaster } from "sonner"
 
-export default function PaymentsPage() {
-  // Mock payment data
-  const paymentHistory = [
-    {
-      id: 1,
-      date: "2024-01-01",
-      amount: 1500,
-      type: "Rent",
-      status: "paid",
-      method: "Bank Transfer",
-      confirmationNumber: "TXN-2024-001",
-    },
-    {
-      id: 2,
-      date: "2023-12-01",
-      amount: 1500,
-      type: "Rent",
-      status: "paid",
-      method: "Credit Card",
-      confirmationNumber: "TXN-2023-012",
-    },
-    {
-      id: 3,
-      date: "2023-11-01",
-      amount: 1500,
-      type: "Rent",
-      status: "paid",
-      method: "Bank Transfer",
-      confirmationNumber: "TXN-2023-011",
-    },
-    {
-      id: 4,
-      date: "2023-10-01",
-      amount: 1500,
-      type: "Rent",
-      status: "paid",
-      method: "Credit Card",
-      confirmationNumber: "TXN-2023-010",
-    },
-    {
-      id: 5,
-      date: "2023-09-15",
-      amount: 300,
-      type: "Pet Deposit",
-      status: "paid",
-      method: "Bank Transfer",
-      confirmationNumber: "TXN-2023-009",
-    },
-  ]
+// Services
+import { paymentService } from "@/services/paymentService" // Adjust path
+import { authService } from "@/services/authService"
 
-  const upcomingPayment = {
-    amount: 1500,
-    dueDate: "2024-02-01",
-    type: "Monthly Rent",
-    daysUntilDue: 5,
+export default function TenantPaymentsPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [processing, setProcessing] = useState(false)
+  const [payments, setPayments] = useState<any[]>([])
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  // Payment Form State
+  const [paymentMethod, setPaymentMethod] = useState("card")
+
+  // 1. Fetch Data
+  const loadPayments = async () => {
+    try {
+      setLoading(true)
+      // Uses backend: PaymentModel.findByTenantUserId
+      const data = await paymentService.getMyPayments()
+      setPayments(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to load payment history")
+    } finally {
+      setLoading(false)
+    }
   }
 
+  useEffect(() => {
+    // Ensure user is logged in
+    if (!authService.isAuthenticated()) {
+      router.push("/login")
+      return
+    }
+    loadPayments()
+  }, [])
+
+  // 2. Computed Data
+  // Find the next unpaid bill (pending or late)
+  const upcomingPayment = payments.find(p => p.status === 'pending' || p.status === 'late')
+
+  // Filter history (completed payments)
+  const paymentHistory = payments.filter(p => p.status === 'completed' || p.status === 'paid')
+
+  // Calculate Stats
   const paymentStats = {
-    totalPaid: paymentHistory.reduce((sum, payment) => sum + payment.amount, 0),
-    onTimePayments: paymentHistory.filter((p) => p.status === "paid").length,
-    averagePayment: Math.round(
-      paymentHistory.reduce((sum, payment) => sum + payment.amount, 0) / paymentHistory.length,
-    ),
+    totalPaid: paymentHistory.reduce((sum, p) => sum + Number(p.amount), 0),
+    onTimePayments: paymentHistory.filter((p) => p.status === "completed" && new Date(p.payment_date) <= new Date(p.due_date)).length,
+    averagePayment: paymentHistory.length > 0
+      ? Math.round(paymentHistory.reduce((sum, p) => sum + Number(p.amount), 0) / paymentHistory.length)
+      : 0,
+  }
+
+  // Days until due calculation
+  let daysUntilDue = 0
+  if (upcomingPayment) {
+    const due = new Date(upcomingPayment.due_date).getTime()
+    const now = new Date().getTime()
+    daysUntilDue = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
+  }
+
+  // 3. Handle Payment Submission
+  const handlePayNow = async () => {
+    if (!upcomingPayment) return
+
+    try {
+      setProcessing(true)
+
+      // Since we don't have a real gateway, we simulate a successful payment 
+      // by updating the record status to 'completed'
+      const payload = {
+        ...upcomingPayment, // Keep existing IDs
+        status: 'completed',
+        payment_method: paymentMethod,
+        payment_date: new Date().toISOString(), // Paid now
+        notes: `Paid via Tenant Portal (${paymentMethod})`
+      }
+
+      await paymentService.update(upcomingPayment.id, payload)
+
+      toast.success("Payment processed successfully!")
+      setIsDialogOpen(false)
+      loadPayments() // Refresh UI
+    } catch (err) {
+      console.error(err)
+      toast.error("Payment failed. Please try again.")
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  // Helper colors
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return "text-green-600 border-green-600 bg-green-50"
+      case 'paid': return "text-green-600 border-green-600 bg-green-50"
+      case 'pending': return "text-amber-600 border-amber-600 bg-amber-50"
+      case 'late': return "text-red-600 border-red-600 bg-red-50"
+      default: return "text-slate-600 border-slate-600"
+    }
+  }
+
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>
   }
 
   return (
     <div className="min-h-screen bg-background">
+      <Toaster position="top-right" />
+
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
@@ -103,26 +153,29 @@ export default function PaymentsPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+
         {/* Upcoming Payment Alert */}
-        {upcomingPayment.daysUntilDue <= 7 && (
-          <Card className="mb-8 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+        {upcomingPayment ? (
+          <Card className={`mb-8 ${daysUntilDue < 0 ? 'border-red-200 bg-red-50' : 'border-orange-200 bg-orange-50'}`}>
+            <CardContent>
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center space-x-3">
-                  <AlertCircle className="h-6 w-6 text-orange-600" />
+                  <AlertCircle className={`h-6 w-6 ${daysUntilDue < 0 ? 'text-red-600' : 'text-orange-600'}`} />
                   <div>
-                    <h3 className="font-semibold text-orange-800 dark:text-orange-200">
-                      Payment Due in {upcomingPayment.daysUntilDue} days
+                    <h3 className={`font-semibold ${daysUntilDue < 0 ? 'text-red-800' : 'text-orange-800'}`}>
+                      {daysUntilDue < 0
+                        ? `Payment Overdue by ${Math.abs(daysUntilDue)} days`
+                        : `Payment Due in ${daysUntilDue} days`}
                     </h3>
-                    <p className="text-sm text-orange-600 dark:text-orange-300">
-                      ${upcomingPayment.amount} {upcomingPayment.type} due on{" "}
-                      {new Date(upcomingPayment.dueDate).toLocaleDateString()}
+                    <p className={`text-sm ${daysUntilDue < 0 ? 'text-red-600' : 'text-orange-600'}`}>
+                      ${upcomingPayment.amount} rent due on {new Date(upcomingPayment.due_date).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
-                <Dialog>
+
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-orange-600 hover:bg-orange-700">
+                    <Button className={daysUntilDue < 0 ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Pay Now
                     </Button>
@@ -131,70 +184,81 @@ export default function PaymentsPage() {
                     <DialogHeader>
                       <DialogTitle>Make Payment</DialogTitle>
                       <DialogDescription>
-                        Pay your rent securely online. Your payment will be processed immediately.
+                        Pay your rent securely online.
                       </DialogDescription>
                     </DialogHeader>
+
                     <div className="space-y-6 py-4">
+                      {/* Summary Box */}
                       <div className="p-4 bg-muted rounded-lg">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Amount Due:</span>
                           <span className="text-2xl font-bold">${upcomingPayment.amount}</span>
                         </div>
                         <div className="flex justify-between items-center mt-2">
-                          <span className="text-sm text-muted-foreground">Due Date:</span>
-                          <span className="text-sm">{new Date(upcomingPayment.dueDate).toLocaleDateString()}</span>
+                          <span className="text-sm text-muted-foreground">Property:</span>
+                          <span className="text-sm">{upcomingPayment.property_name} - Unit {upcomingPayment.unit_number}</span>
                         </div>
                       </div>
 
+                      {/* Payment Method Selection */}
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="paymentMethod">Payment Method</Label>
-                          <Select>
+                          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select payment method" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="bank">Bank Transfer (ACH)</SelectItem>
+                              <SelectItem value="bank_transfer">Bank Transfer (ACH)</SelectItem>
                               <SelectItem value="card">Credit/Debit Card</SelectItem>
                               <SelectItem value="paypal">PayPal</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="cardNumber">Card Number</Label>
-                            <Input id="cardNumber" placeholder="1234 5678 9012 3456" />
+                        {/* Mock Fields based on Selection */}
+                        {paymentMethod === 'card' && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                              <Label>Card Number</Label>
+                              <Input placeholder="0000 0000 0000 0000" />
+                            </div>
+                            <div>
+                              <Label>Expiry</Label>
+                              <Input placeholder="MM/YY" />
+                            </div>
+                            <div>
+                              <Label>CVV</Label>
+                              <Input placeholder="123" />
+                            </div>
                           </div>
-                          <div>
-                            <Label htmlFor="expiryDate">Expiry Date</Label>
-                            <Input id="expiryDate" placeholder="MM/YY" />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="cvv">CVV</Label>
-                            <Input id="cvv" placeholder="123" />
-                          </div>
-                          <div>
-                            <Label htmlFor="zipCode">ZIP Code</Label>
-                            <Input id="zipCode" placeholder="12345" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex space-x-2">
-                        <Button variant="outline" className="flex-1 bg-transparent">
-                          Cancel
-                        </Button>
-                        <Button className="flex-1 bg-green-600 hover:bg-green-700">
-                          Pay ${upcomingPayment.amount}
-                        </Button>
+                        )}
                       </div>
                     </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                      <Button
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={handlePayNow}
+                        disabled={processing}
+                      >
+                        {processing ? "Processing..." : `Pay $${upcomingPayment.amount}`}
+                      </Button>
+                    </DialogFooter>
                   </DialogContent>
                 </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mb-8 border-green-200 bg-green-50">
+            <CardContent className="pt-6 flex items-center gap-3">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+              <div>
+                <h3 className="font-semibold text-green-800">You're all caught up!</h3>
+                <p className="text-sm text-green-600">No pending payments found.</p>
               </div>
             </CardContent>
           </Card>
@@ -220,7 +284,7 @@ export default function PaymentsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{paymentStats.onTimePayments}</div>
-              <p className="text-xs text-muted-foreground">Perfect payment record</p>
+              <p className="text-xs text-muted-foreground">Successful transactions</p>
             </CardContent>
           </Card>
 
@@ -230,7 +294,7 @@ export default function PaymentsPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${paymentStats.averagePayment}</div>
+              <div className="text-2xl font-bold">${paymentStats.averagePayment.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Monthly average</p>
             </CardContent>
           </Card>
@@ -262,26 +326,34 @@ export default function PaymentsPage() {
                       <CheckCircle className="h-4 w-4 text-green-600" />
                     </div>
                     <div>
-                      <p className="font-medium">{payment.type}</p>
+                      <p className="font-medium">Rent Payment</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(payment.date).toLocaleDateString()} • {payment.method}
+                        {new Date(payment.payment_date).toLocaleDateString()} • {payment.payment_method?.replace('_', ' ') || 'N/A'}
                       </p>
-                      <p className="text-xs text-muted-foreground">Confirmation: {payment.confirmationNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Ref: {payment.transaction_id || payment.id.substring(0, 8)}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-lg">${payment.amount}</p>
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      Paid
+                    <Badge variant="outline" className={getStatusColor(payment.status)}>
+                      {payment.status}
                     </Badge>
                   </div>
                 </div>
               ))}
+
+              {paymentHistory.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No payment history available.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Payment Methods */}
+        {/* Payment Methods (Static for now, but UI ready) */}
         <Card className="mt-8">
           <CardHeader>
             <CardTitle>Saved Payment Methods</CardTitle>
@@ -293,23 +365,14 @@ export default function PaymentsPage() {
                 <div className="flex items-center space-x-3">
                   <CreditCard className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">Bank Account ****1234</p>
-                    <p className="text-sm text-muted-foreground">Primary payment method</p>
-                  </div>
-                </div>
-                <Badge variant="secondary">Default</Badge>
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  <div>
                     <p className="font-medium">Visa ****5678</p>
                     <p className="text-sm text-muted-foreground">Expires 12/25</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  Edit
-                </Button>
+                <div className="flex gap-2">
+                  <Badge variant="secondary">Default</Badge>
+                  <Button variant="ghost" size="sm">Remove</Button>
+                </div>
               </div>
               <Button variant="outline" className="w-full bg-transparent">
                 <CreditCard className="h-4 w-4 mr-2" />

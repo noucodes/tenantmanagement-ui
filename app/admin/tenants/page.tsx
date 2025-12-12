@@ -1,207 +1,164 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Edit, Trash2, Home, Phone, Mail, Calendar, DollarSign } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Home, Phone, Mail, Calendar, DollarSign, User } from "lucide-react"
+import { toast, Toaster } from "sonner"
 
-// Mock data for tenants
-const mockTenants = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    phone: "(555) 123-4567",
-    property: "Sunset Apartments",
-    unit: "Unit 2A",
-    leaseStart: "2024-01-15",
-    leaseEnd: "2024-12-31",
-    rent: 1200,
-    status: "active",
-    avatar: "/diverse-woman-portrait.png",
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    email: "michael.chen@email.com",
-    phone: "(555) 234-5678",
-    property: "Oak Ridge Complex",
-    unit: "Unit 1B",
-    leaseStart: "2023-06-01",
-    leaseEnd: "2024-05-31",
-    rent: 1450,
-    status: "expiring",
-    avatar: "/thoughtful-man.png",
-  },
-  {
-    id: 3,
-    name: "Emily Rodriguez",
-    email: "emily.rodriguez@email.com",
-    phone: "(555) 345-6789",
-    property: "Downtown Lofts",
-    unit: "Unit 3C",
-    leaseStart: "2024-03-01",
-    leaseEnd: "2025-02-28",
-    rent: 1800,
-    status: "active",
-    avatar: "/diverse-woman-portrait.png",
-  },
-]
+import { tenantService } from "@/services/tenantService"
+import { TenantDialog, TenantFormValues } from "@/components/admin/tenant-dialog"
 
-const mockProperties = [
-  { id: 1, name: "Sunset Apartments", units: ["1A", "1B", "2A", "2B"] },
-  { id: 2, name: "Oak Ridge Complex", units: ["1A", "1B", "1C", "2A"] },
-  { id: 3, name: "Downtown Lofts", units: ["3A", "3B", "3C", "4A"] },
-]
+// Define the interface based on your Backend "findAll" query
+interface Tenant {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  status: string;
+  // Fields from LEFT JOINs
+  property_name?: string;
+  unit_number?: string;
+  current_rent?: number;
+  lease_start?: string;
+  lease_end?: string;
+  occupation?: string;
+  monthly_income?: number;
+}
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState(mockTenants)
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [editingTenant, setEditingTenant] = useState<any>(null)
+  const [filterStatus, setFilterStatus] = useState("all")
 
-  const filteredTenants = tenants.filter(
-    (tenant) =>
-      tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.property.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // Dialog State
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingTenant, setEditingTenant] = useState<TenantFormValues | null>(null)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800"
-      case "expiring":
-        return "bg-yellow-100 text-yellow-800"
-      case "inactive":
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+  // ✅ Fetch Tenants
+  const fetchTenants = async () => {
+    try {
+      setLoading(true)
+      const data = await tenantService.getAll()
+      setTenants(Array.isArray(data) ? data : [])
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Failed to load tenants")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleAddTenant = () => {
-    // Add tenant logic here
-    setIsAddDialogOpen(false)
+  useEffect(() => {
+    fetchTenants()
+  }, [])
+
+  // ✅ Create / Update Tenant
+  const handleSave = async (values: TenantFormValues) => {
+    try {
+      if (editingTenant && editingTenant.id) {
+        // Update
+        await tenantService.update(editingTenant.id, values)
+        toast.success("Tenant profile updated")
+      } else {
+        // Create
+        await tenantService.create(values)
+        toast.success("Tenant created successfully")
+      }
+      setIsDialogOpen(false)
+      setEditingTenant(null)
+      fetchTenants() // Refresh list
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.response?.data?.error || "Failed to save tenant")
+    }
   }
 
-  const handleEditTenant = (tenant: any) => {
-    setEditingTenant(tenant)
+  // ✅ Delete Tenant
+  const handleDeleteTenant = async (id: number) => {
+    if (!confirm("Are you sure? This will remove the tenant profile.")) return;
+
+    try {
+      await tenantService.delete(id);
+      toast.success("Tenant deleted");
+      fetchTenants();
+    } catch (err) {
+      toast.error("Failed to delete tenant");
+    }
   }
 
-  const handleDeleteTenant = (tenantId: number) => {
-    setTenants(tenants.filter((t) => t.id !== tenantId))
+  const handleEditClick = (tenant: Tenant) => {
+    setEditingTenant({
+      id: tenant.id,
+      first_name: tenant.first_name,
+      last_name: tenant.last_name,
+      email: tenant.email,
+      phone: tenant.phone,
+      occupation: tenant.occupation || '',
+      monthly_income: String(tenant.monthly_income || ''),
+      status: tenant.status as any
+    })
+    setIsDialogOpen(true)
+  }
+
+  // Filtering Logic
+  const filteredTenants = tenants.filter((tenant) => {
+    const fullName = `${tenant.first_name} ${tenant.last_name}`.toLowerCase()
+    const matchesSearch =
+      fullName.includes(searchTerm.toLowerCase()) ||
+      tenant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tenant.property_name?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesFilter = filterStatus === "all" || tenant.status === filterStatus
+
+    return matchesSearch && matchesFilter
+  })
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active": return "bg-green-100 text-green-800"
+      case "expiring": return "bg-yellow-100 text-yellow-800"
+      case "inactive": return "bg-gray-100 text-gray-800"
+      case "prospect": return "bg-blue-100 text-blue-800"
+      default: return "bg-gray-100 text-gray-800"
+    }
   }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
+      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto space-y-6">
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Tenant Management</h1>
-            <p className="text-slate-600 mt-1">Manage tenant profiles and assignments</p>
+            <p className="text-slate-600 mt-1">Manage tenant profiles and view lease info</p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Tenant
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add New Tenant</DialogTitle>
-                <DialogDescription>Enter tenant information and assign to a unit</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" placeholder="Enter first name" />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Enter last name" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="Enter email address" />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" placeholder="Enter phone number" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="property">Property</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select property" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockProperties.map((property) => (
-                          <SelectItem key={property.id} value={property.name}>
-                            {property.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="unit">Unit</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1A">Unit 1A</SelectItem>
-                        <SelectItem value="1B">Unit 1B</SelectItem>
-                        <SelectItem value="2A">Unit 2A</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="leaseStart">Lease Start</Label>
-                    <Input id="leaseStart" type="date" />
-                  </div>
-                  <div>
-                    <Label htmlFor="leaseEnd">Lease End</Label>
-                    <Input id="leaseEnd" type="date" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="rent">Monthly Rent</Label>
-                  <Input id="rent" type="number" placeholder="Enter monthly rent" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddTenant} className="bg-emerald-600 hover:bg-emerald-700">
-                  Add Tenant
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+
+          <TenantDialog
+            isOpen={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) setEditingTenant(null);
+            }}
+            onSave={handleSave}
+            editingTenant={editingTenant}
+          />
+
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => { setEditingTenant(null); setIsDialogOpen(true); }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Tenant
+          </Button>
         </div>
 
         {/* Search and Filters */}
@@ -217,14 +174,14 @@ export default function TenantsPage() {
                   className="pl-10"
                 />
               </div>
-              <Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Tenants</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="expiring">Expiring Soon</SelectItem>
+                  <SelectItem value="prospect">Prospect</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
@@ -232,29 +189,33 @@ export default function TenantsPage() {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {loading && <div className="text-center py-10">Loading tenants...</div>}
+
         {/* Tenants Grid */}
         <div className="grid gap-6">
-          {filteredTenants.map((tenant) => (
+          {!loading && filteredTenants.map((tenant) => (
             <Card key={tenant.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4">
                     <Avatar className="w-12 h-12">
-                      <AvatarImage src={tenant.avatar || "/placeholder.svg"} alt={tenant.name} />
+                      {/* You could add an avatar field to DB or use placeholder */}
+                      <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${tenant.first_name} ${tenant.last_name}`} />
                       <AvatarFallback>
-                        {tenant.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                        {tenant.first_name[0]}{tenant.last_name[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div className="space-y-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-slate-900">{tenant.name}</h3>
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          {tenant.first_name} {tenant.last_name}
+                        </h3>
                         <Badge className={getStatusColor(tenant.status)}>
                           {tenant.status.charAt(0).toUpperCase() + tenant.status.slice(1)}
                         </Badge>
                       </div>
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div className="flex items-center space-x-2">
                           <Mail className="w-4 h-4 text-slate-400" />
@@ -264,29 +225,40 @@ export default function TenantsPage() {
                           <Phone className="w-4 h-4 text-slate-400" />
                           <span className="text-slate-600">{tenant.phone}</span>
                         </div>
+
+                        {/* Property Info - Only shows if Lease exists (Left Join) */}
                         <div className="flex items-center space-x-2">
                           <Home className="w-4 h-4 text-slate-400" />
-                          <span className="text-slate-600">
-                            {tenant.property} - {tenant.unit}
+                          <span className={`${tenant.unit_number ? 'text-slate-600' : 'text-slate-400 italic'}`}>
+                            {tenant.unit_number
+                              ? `${tenant.property_name} - Unit ${tenant.unit_number}`
+                              : "Unassigned (No Lease)"}
                           </span>
                         </div>
+
                         <div className="flex items-center space-x-2">
                           <DollarSign className="w-4 h-4 text-slate-400" />
-                          <span className="text-slate-600">${tenant.rent}/month</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-slate-600">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>
-                            Lease: {tenant.leaseStart} to {tenant.leaseEnd}
+                          <span className="text-slate-600">
+                            {tenant.current_rent ? `$${tenant.current_rent}/mo` : "-"}
                           </span>
                         </div>
                       </div>
+
+                      {tenant.lease_start && (
+                        <div className="flex items-center space-x-4 text-sm text-slate-600">
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>
+                              Lease: {new Date(tenant.lease_start).toLocaleDateString()} to {new Date(tenant.lease_end!).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleEditTenant(tenant)}>
+                    <Button variant="outline" size="sm" onClick={() => handleEditClick(tenant)}>
                       <Edit className="w-4 h-4" />
                     </Button>
                     <Button
@@ -302,6 +274,12 @@ export default function TenantsPage() {
               </CardContent>
             </Card>
           ))}
+
+          {!loading && filteredTenants.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
+              No tenants found.
+            </div>
+          )}
         </div>
       </div>
     </div>

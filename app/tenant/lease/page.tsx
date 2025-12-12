@@ -1,43 +1,106 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, FileText, Download, Calendar, DollarSign, Home, User, Clock } from "lucide-react"
+import { ArrowLeft, FileText, Download, Calendar, DollarSign, Home, User, Clock, Loader2, MapPin } from "lucide-react"
+import { toast, Toaster } from "sonner"
+
+// Services
+import { leaseService } from "@/services/leaseService"
+import { authService } from "@/services/authService"
 
 export default function LeaseInfoPage() {
-  // Mock lease data
-  const leaseInfo = {
-    property: "Sunset Apartments",
-    unit: "Unit 2A",
-    tenant: "John Doe",
-    landlord: "Property Management LLC",
-    leaseStart: "2024-01-01",
-    leaseEnd: "2024-12-31",
-    monthlyRent: 1500,
-    securityDeposit: 1500,
-    petDeposit: 300,
-    leaseType: "Fixed Term",
-    renewalOption: true,
-    noticePeriod: 30,
-    lateFeePeriod: 5,
-    lateFeeAmount: 50,
-    utilities: ["Water", "Sewer", "Trash"],
-    restrictions: ["No smoking", "No pets over 50lbs", "Quiet hours 10PM-8AM"],
-    amenities: ["Pool", "Gym", "Parking", "Laundry"],
-    emergencyContact: "(555) 999-0000",
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [lease, setLease] = useState<any>(null)
+
+  useEffect(() => {
+    // 1. Check Auth
+    if (!authService.isAuthenticated()) {
+      router.push("/login")
+      return
+    }
+    const currentUser = authService.getCurrentUser()
+    setUser(currentUser)
+    console.log("Current User:", currentUser)
+
+    // 2. Fetch Active Lease
+    const fetchLease = async () => {
+      try {
+        setLoading(true)
+        const data = await leaseService.getMyLease()
+        setLease(data)
+      } catch (error) {
+        console.error("Error fetching lease:", error)
+        toast.error("Failed to load lease information")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLease()
+  }, [])
+
+  const handleDownload = () => {
+    toast.success("Downloading Lease PDF... (Feature pending backend implementation)")
   }
 
-  const currentDate = new Date()
-  const startDate = new Date(leaseInfo.leaseStart)
-  const endDate = new Date(leaseInfo.leaseEnd)
-  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  const elapsedDays = Math.ceil((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  const progress = Math.min((elapsedDays / totalDays) * 100, 100)
-  const remainingDays = Math.max(totalDays - elapsedDays, 0)
+  // Helper: Calculate Dates & Progress
+  const getLeaseMetrics = () => {
+    if (!lease) return { progress: 0, remainingDays: 0, totalDays: 0 };
+
+    const start = new Date(lease.start_date).getTime()
+    const end = new Date(lease.end_date).getTime()
+    const current = new Date().getTime()
+
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+    const elapsedDays = Math.ceil((current - start) / (1000 * 60 * 60 * 24))
+    const remainingDays = Math.max(0, Math.ceil((end - current) / (1000 * 60 * 60 * 24)))
+
+    // Calculate progress percentage (0 to 100)
+    const progress = totalDays > 0 ? Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100)) : 0
+
+    return { progress, remainingDays, totalDays }
+  }
+
+  const { progress, remainingDays } = getLeaseMetrics()
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!lease) {
+    return (
+      <div className="min-h-screen bg-background p-8 flex flex-col items-center justify-center">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <CardTitle>No Active Lease</CardTitle>
+            <CardDescription>We couldn't find an active lease associated with your account.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/tenant">Back to Dashboard</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
+      <Toaster position="top-right" />
+
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
@@ -54,7 +117,7 @@ export default function LeaseInfoPage() {
                 <p className="text-muted-foreground">View your lease terms and contract details</p>
               </div>
             </div>
-            <Button>
+            <Button onClick={handleDownload}>
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </Button>
@@ -63,6 +126,7 @@ export default function LeaseInfoPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+
         {/* Lease Progress */}
         <Card className="mb-8">
           <CardHeader>
@@ -74,8 +138,8 @@ export default function LeaseInfoPage() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between text-sm">
-                <span>Start: {new Date(leaseInfo.leaseStart).toLocaleDateString()}</span>
-                <span>End: {new Date(leaseInfo.leaseEnd).toLocaleDateString()}</span>
+                <span>Start: {new Date(lease.start_date).toLocaleDateString()}</span>
+                <span>End: {new Date(lease.end_date).toLocaleDateString()}</span>
               </div>
               <Progress value={progress} className="h-3" />
               <div className="flex justify-between text-sm text-muted-foreground">
@@ -97,20 +161,25 @@ export default function LeaseInfoPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Property</p>
-                <p className="text-lg font-semibold">{leaseInfo.property}</p>
+                <p className="text-sm font-medium text-muted-foreground">Property Name</p>
+                <p className="text-lg font-semibold">{lease.property_name}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Unit</p>
-                <p className="text-lg font-semibold">{leaseInfo.unit}</p>
+                <p className="text-lg font-semibold">{lease.unit_number}</p>
+                <Badge variant="outline" className="mt-1">
+                  {lease.bedrooms} Bed / {lease.bathrooms} Bath
+                </Badge>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Lease Type</p>
-                <p className="text-lg font-semibold">{leaseInfo.leaseType}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Emergency Contact</p>
-                <p className="text-lg font-semibold">{leaseInfo.emergencyContact}</p>
+                <p className="text-sm font-medium text-muted-foreground">Address</p>
+                <div className="flex items-start mt-1">
+                  <MapPin className="h-4 w-4 mr-1 text-muted-foreground mt-1" />
+                  <p className="text-base">
+                    {lease.address}<br />
+                    {lease.city}, {lease.state} {lease.zip_code}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -125,23 +194,17 @@ export default function LeaseInfoPage() {
             <CardContent className="space-y-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Tenant</p>
-                <p className="text-lg font-semibold">{leaseInfo.tenant}</p>
+                <p className="text-lg font-semibold">{user?.name || user?.first_name}</p>
+                <p className="text-sm text-muted-foreground">{user?.email}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Landlord</p>
-                <p className="text-lg font-semibold">{leaseInfo.landlord}</p>
+                <p className="text-sm font-medium text-muted-foreground">Landlord / Management</p>
+                <p className="text-lg font-semibold">Admin Management Team</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Lease Term</p>
-                <p className="text-lg font-semibold">
-                  {new Date(leaseInfo.leaseStart).toLocaleDateString()} -{" "}
-                  {new Date(leaseInfo.leaseEnd).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Renewal Option</p>
-                <Badge variant={leaseInfo.renewalOption ? "default" : "secondary"}>
-                  {leaseInfo.renewalOption ? "Available" : "Not Available"}
+                <p className="text-sm font-medium text-muted-foreground">Lease Status</p>
+                <Badge className="mt-1 capitalize bg-green-100 text-green-800 hover:bg-green-100">
+                  {lease.status}
                 </Badge>
               </div>
             </CardContent>
@@ -158,107 +221,45 @@ export default function LeaseInfoPage() {
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center p-4 border rounded-lg">
+              <div className="text-center p-4 border rounded-lg bg-slate-50">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Monthly Rent</p>
-                <p className="text-2xl font-bold text-primary">${leaseInfo.monthlyRent}</p>
+                <p className="text-2xl font-bold text-primary">${Number(lease.rent_amount).toLocaleString()}</p>
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Security Deposit</p>
-                <p className="text-2xl font-bold">${leaseInfo.securityDeposit}</p>
+                <p className="text-2xl font-bold">${Number(lease.security_deposit).toLocaleString()}</p>
               </div>
               <div className="text-center p-4 border rounded-lg">
-                <p className="text-sm font-medium text-muted-foreground mb-2">Pet Deposit</p>
-                <p className="text-2xl font-bold">${leaseInfo.petDeposit}</p>
-              </div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Late Fee Policy</p>
-                <p className="text-sm">
-                  ${leaseInfo.lateFeeAmount} after {leaseInfo.lateFeePeriod} days past due date
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Notice Period</p>
-                <p className="text-sm">{leaseInfo.noticePeriod} days written notice required</p>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Payment Day</p>
+                <p className="text-2xl font-bold">Day {lease.payment_day || 1}</p>
+                <p className="text-xs text-muted-foreground">of every month</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Terms and Conditions */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Included Utilities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {leaseInfo.utilities.map((utility, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>{utility}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Amenities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {leaseInfo.amenities.map((amenity, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span>{amenity}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Restrictions */}
+        {/* Terms and Conditions (From DB 'terms' field) */}
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>Lease Restrictions</CardTitle>
-            <CardDescription>Important rules and restrictions for this property</CardDescription>
+            <CardTitle>Additional Terms & Notes</CardTitle>
+            <CardDescription>Specific conditions applied to this lease</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {leaseInfo.restrictions.map((restriction, index) => (
-                <div key={index} className="flex items-start space-x-3 p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                  <span className="text-sm">{restriction}</span>
+            <div className="space-y-4">
+              {lease.terms ? (
+                <div className="p-4 bg-muted rounded-lg text-sm whitespace-pre-wrap">
+                  {lease.terms}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              ) : (
+                <p className="text-muted-foreground italic">No additional custom terms specified.</p>
+              )}
 
-        {/* Actions */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>Lease Actions</CardTitle>
-            <CardDescription>Common lease-related actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent">
-                <FileText className="h-6 w-6" />
-                <span>Request Lease Amendment</span>
-              </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent">
-                <Calendar className="h-6 w-6" />
-                <span>Schedule Renewal Discussion</span>
-              </Button>
-              <Button variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent">
-                <Download className="h-6 w-6" />
-                <span>Download Full Contract</span>
-              </Button>
+              {lease.notes && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-1">Notes:</p>
+                  <p className="text-sm text-muted-foreground">{lease.notes}</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

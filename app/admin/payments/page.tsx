@@ -1,217 +1,167 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, DollarSign, AlertCircle, CheckCircle, Clock } from "lucide-react"
+import { Search, Plus, DollarSign, AlertCircle, CheckCircle, Clock, Edit, Trash2 } from "lucide-react"
+import { toast, Toaster } from "sonner"
 
-// Mock data for payments
-const mockPayments = [
-  {
-    id: 1,
-    tenant: "Sarah Johnson",
-    property: "Sunset Apartments",
-    unit: "Unit 2A",
-    amount: 1200,
-    dueDate: "2024-02-01",
-    paidDate: "2024-01-30",
-    status: "paid",
-    method: "Bank Transfer",
-    late: false,
-  },
-  {
-    id: 2,
-    tenant: "Michael Chen",
-    property: "Oak Ridge Complex",
-    unit: "Unit 1B",
-    amount: 1450,
-    dueDate: "2024-02-01",
-    paidDate: null,
-    status: "overdue",
-    method: null,
-    late: true,
-    daysOverdue: 15,
-  },
-  {
-    id: 3,
-    tenant: "Emily Rodriguez",
-    property: "Downtown Lofts",
-    unit: "Unit 3C",
-    amount: 1800,
-    dueDate: "2024-02-15",
-    paidDate: null,
-    status: "pending",
-    method: null,
-    late: false,
-  },
-  {
-    id: 4,
-    tenant: "David Wilson",
-    property: "Sunset Apartments",
-    unit: "Unit 1A",
-    amount: 1100,
-    dueDate: "2024-01-01",
-    paidDate: "2024-01-05",
-    status: "paid",
-    method: "Credit Card",
-    late: true,
-    daysLate: 4,
-  },
-]
+// Services & Components
+import { paymentService } from "@/services/paymentService"
+import { PaymentDialog, PaymentFormValues } from "@/components/admin/payment-dialog"
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState(mockPayments)
+  const [payments, setPayments] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false)
-  const [selectedPayment, setSelectedPayment] = useState<any>(null)
+  const [filterStatus, setFilterStatus] = useState("all")
 
-  const filteredPayments = payments.filter(
-    (payment) =>
-      payment.tenant.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.property.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.unit.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // Dialog State
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<any>(null)
+
+  // ✅ Fetch Data
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [paymentsData, statsData] = await Promise.all([
+        paymentService.getAll(),
+        paymentService.getStats()
+      ]);
+
+      setPayments(Array.isArray(paymentsData) ? paymentsData : [])
+      setStats(statsData || {})
+    } catch (err: any) {
+      console.error(err)
+      toast.error("Failed to load payments")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // ✅ Handle Save
+  const handleSave = async (values: PaymentFormValues) => {
+    try {
+      const payload = {
+        ...values,
+        amount: Number(values.amount),
+        late_fee: Number(values.late_fee || 0),
+        // Dates usually need to be ISO strings or standard YYYY-MM-DD depending on backend config
+        // Assuming backend handles standard string dates fine.
+      }
+
+      console.log("🚀 Payload:", payload);
+
+      if (editingPayment && editingPayment.id) {
+        await paymentService.update(editingPayment.id, payload)
+        toast.success("Payment updated")
+      } else {
+        await paymentService.create(payload)
+        toast.success("Payment recorded successfully")
+      }
+      setIsDialogOpen(false)
+      setEditingPayment(null)
+      loadData()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.response?.data?.error || "Failed to save payment")
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this payment record?")) return;
+    try {
+      await paymentService.delete(id);
+      toast.success("Payment deleted");
+      loadData();
+    } catch (err) {
+      toast.error("Failed to delete payment");
+    }
+  }
+
+  // Frontend Filtering
+  const filteredPayments = payments.filter((payment) => {
+    const searchStr = searchTerm.toLowerCase();
+    const matchesSearch =
+      payment.tenant_name?.toLowerCase().includes(searchStr) ||
+      payment.property_name?.toLowerCase().includes(searchStr) ||
+      payment.unit_number?.toLowerCase().includes(searchStr);
+
+    const matchesFilter = filterStatus === 'all' || payment.status === filterStatus;
+
+    return matchesSearch && matchesFilter;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "paid":
-        return "bg-green-100 text-green-800"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "overdue":
-        return "bg-red-100 text-red-800"
-      case "partial":
-        return "bg-orange-100 text-orange-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+      case "completed": return "bg-green-100 text-green-800"
+      case "paid": return "bg-green-100 text-green-800" // Fallback if backend uses 'paid'
+      case "pending": return "bg-yellow-100 text-yellow-800"
+      case "late": return "bg-red-100 text-red-800"
+      case "overdue": return "bg-red-100 text-red-800"
+      case "failed": return "bg-gray-100 text-gray-800"
+      default: return "bg-gray-100 text-gray-800"
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "paid":
-        return <CheckCircle className="w-4 h-4" />
-      case "pending":
-        return <Clock className="w-4 h-4" />
-      case "overdue":
-        return <AlertCircle className="w-4 h-4" />
-      default:
-        return <Clock className="w-4 h-4" />
+      case "completed": return <CheckCircle className="w-4 h-4" />
+      case "pending": return <Clock className="w-4 h-4" />
+      case "late": return <AlertCircle className="w-4 h-4" />
+      default: return <Clock className="w-4 h-4" />
     }
   }
 
-  const handleRecordPayment = () => {
-    setIsRecordDialogOpen(false)
-  }
-
-  const totalRevenue = payments.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0)
-  const overdueAmount = payments.filter((p) => p.status === "overdue").reduce((sum, p) => sum + p.amount, 0)
-  const pendingAmount = payments.filter((p) => p.status === "pending").reduce((sum, p) => sum + p.amount, 0)
-
   return (
     <div className="min-h-screen bg-slate-50 p-6">
+      <Toaster position="top-right" />
       <div className="max-w-7xl mx-auto space-y-6">
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Payment Management</h1>
             <p className="text-slate-600 mt-1">Track rent payments and manage overdue accounts</p>
           </div>
-          <Dialog open={isRecordDialogOpen} onOpenChange={setIsRecordDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Record Payment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Record Payment</DialogTitle>
-                <DialogDescription>Record a new rent payment</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div>
-                  <Label htmlFor="tenant">Tenant</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select tenant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sarah">Sarah Johnson - Unit 2A</SelectItem>
-                      <SelectItem value="michael">Michael Chen - Unit 1B</SelectItem>
-                      <SelectItem value="emily">Emily Rodriguez - Unit 3C</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="amount">Amount</Label>
-                    <Input id="amount" type="number" placeholder="Enter amount" />
-                  </div>
-                  <div>
-                    <Label htmlFor="method">Payment Method</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="check">Check</SelectItem>
-                        <SelectItem value="bank">Bank Transfer</SelectItem>
-                        <SelectItem value="card">Credit Card</SelectItem>
-                        <SelectItem value="online">Online Payment</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="paidDate">Payment Date</Label>
-                    <Input id="paidDate" type="date" />
-                  </div>
-                  <div>
-                    <Label htmlFor="forMonth">For Month</Label>
-                    <Input id="forMonth" type="month" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Input id="notes" placeholder="Add any notes about this payment" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsRecordDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleRecordPayment} className="bg-emerald-600 hover:bg-emerald-700">
-                  Record Payment
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+
+          <PaymentDialog
+            isOpen={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) setEditingPayment(null);
+            }}
+            onSave={handleSave}
+            editingPayment={editingPayment}
+          />
+
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => { setEditingPayment(null); setIsDialogOpen(true); }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Record Payment
+          </Button>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Pulling from Backend Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-emerald-600">${totalRevenue.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-slate-600">Total Collected</p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    ${Number(stats?.total_collected || 0).toLocaleString()}
+                  </p>
                 </div>
                 <DollarSign className="w-8 h-8 text-emerald-600" />
               </div>
@@ -221,8 +171,10 @@ export default function PaymentsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Overdue Amount</p>
-                  <p className="text-2xl font-bold text-red-600">${overdueAmount.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-slate-600">Outstanding/Late</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    ${Number(stats?.total_outstanding || 0).toLocaleString()}
+                  </p>
                 </div>
                 <AlertCircle className="w-8 h-8 text-red-600" />
               </div>
@@ -232,8 +184,10 @@ export default function PaymentsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Pending Payments</p>
-                  <p className="text-2xl font-bold text-amber-600">${pendingAmount.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-slate-600">Pending</p>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {stats?.pending_count || 0}
+                  </p>
                 </div>
                 <Clock className="w-8 h-8 text-amber-600" />
               </div>
@@ -243,9 +197,9 @@ export default function PaymentsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Collection Rate</p>
+                  <p className="text-sm font-medium text-slate-600">Total Late Fees</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {Math.round((totalRevenue / (totalRevenue + overdueAmount + pendingAmount)) * 100)}%
+                    ${Number(stats?.total_late_fees || 0).toLocaleString()}
                   </p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-emerald-600" />
@@ -267,25 +221,15 @@ export default function PaymentsPage() {
                   className="pl-10"
                 />
               </div>
-              <Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Payments</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by month" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">Current Month</SelectItem>
-                  <SelectItem value="last">Last Month</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -299,63 +243,76 @@ export default function PaymentsPage() {
             <CardDescription>Track all rent payments and their status</CardDescription>
           </CardHeader>
           <CardContent>
+            {loading && <div className="text-center py-4">Loading payments...</div>}
+
             <div className="space-y-4">
-              {filteredPayments.map((payment) => (
+              {!loading && filteredPayments.map((payment) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50"
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
+
+                    {/* Column 1: Tenant */}
                     <div>
-                      <p className="font-medium text-slate-900">{payment.tenant}</p>
+                      <p className="font-medium text-slate-900">{payment.tenant_name}</p>
                       <p className="text-sm text-slate-600">
-                        {payment.property} - {payment.unit}
+                        {payment.property_name} - Unit {payment.unit_number}
                       </p>
                     </div>
+
+                    {/* Column 2: Amount */}
                     <div>
-                      <p className="text-lg font-bold text-slate-900">${payment.amount}</p>
-                      <p className="text-sm text-slate-600">Monthly Rent</p>
+                      <p className="text-lg font-bold text-slate-900">${payment.amount.toLocaleString()}</p>
+                      <p className="text-sm text-slate-600">Rent (${payment.rent_amount})</p>
                     </div>
+
+                    {/* Column 3: Dates */}
                     <div>
-                      <p className="text-sm text-slate-600">Due: {payment.dueDate}</p>
-                      {payment.paidDate && <p className="text-sm text-slate-600">Paid: {payment.paidDate}</p>}
+                      <p className="text-sm text-slate-600">Due: {new Date(payment.due_date).toLocaleDateString()}</p>
+                      {payment.payment_date && (
+                        <p className="text-sm text-slate-600">Paid: {new Date(payment.payment_date).toLocaleDateString()}</p>
+                      )}
                     </div>
+
+                    {/* Column 4: Status */}
                     <div>
                       <div className="flex items-center space-x-2">
                         <Badge className={getStatusColor(payment.status)}>
                           <div className="flex items-center space-x-1">
                             {getStatusIcon(payment.status)}
-                            <span>{payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}</span>
+                            <span className="capitalize">{payment.status}</span>
                           </div>
                         </Badge>
                       </div>
-                      {payment.late && payment.status === "overdue" && (
-                        <p className="text-xs text-red-600 mt-1">{payment.daysOverdue} days overdue</p>
-                      )}
-                      {payment.late && payment.status === "paid" && (
-                        <p className="text-xs text-amber-600 mt-1">Paid {payment.daysLate} days late</p>
+                      {Number(payment.late_fee) > 0 && (
+                        <p className="text-xs text-red-600 mt-1">+${payment.late_fee} Late Fee</p>
                       )}
                     </div>
-                    <div>{payment.method && <p className="text-sm text-slate-600">{payment.method}</p>}</div>
-                    <div className="flex space-x-2">
-                      {payment.status === "overdue" && (
-                        <Button
-                          size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => setSelectedPayment(payment)}
-                        >
-                          Record Payment
-                        </Button>
-                      )}
-                      {payment.status === "overdue" && (
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 bg-transparent">
-                          Send Reminder
-                        </Button>
-                      )}
+
+                    {/* Column 5: Method */}
+                    <div>
+                      {payment.payment_method && <p className="text-sm text-slate-600 capitalize">{payment.payment_method.replace('_', ' ')}</p>}
+                      {payment.transaction_id && <p className="text-xs text-muted-foreground">Ref: {payment.transaction_id}</p>}
                     </div>
+
+                    {/* Column 6: Actions */}
+                    <div className="flex space-x-2 items-center">
+                      <Button variant="outline" size="sm" onClick={() => { setEditingPayment(payment); setIsDialogOpen(true); }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(payment.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
                   </div>
                 </div>
               ))}
+
+              {!loading && filteredPayments.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">No payments found.</div>
+              )}
             </div>
           </CardContent>
         </Card>
