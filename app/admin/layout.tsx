@@ -35,6 +35,7 @@ import {
   LogOut,
   ChevronUp,
   User,
+  PhilippinePeso,
 } from "lucide-react"
 
 const navigation = [
@@ -42,7 +43,7 @@ const navigation = [
   { name: "Properties", href: "/admin/properties", icon: Building2 },
   { name: "Tenants", href: "/admin/tenants", icon: Users },
   { name: "Leases", href: "/admin/leases", icon: FileText },
-  { name: "Payments", href: "/admin/payments", icon: DollarSign },
+  { name: "Payments", href: "/admin/payments", icon: PhilippinePeso },
   { name: "Reports", href: "/admin/reports", icon: BarChart3 },
 ]
 
@@ -235,7 +236,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-auto px-4 lg:px-4 py-6">
+          <main className="flex-1 overflow-auto px-4 lg:px-4">
             <div className="mx-auto max-w-7xl">
               {children}
             </div>

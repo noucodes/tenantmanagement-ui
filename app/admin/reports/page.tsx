@@ -17,7 +17,7 @@ import {
   Line,
   Legend
 } from "recharts"
-import { Download, DollarSign, Home, TrendingUp, AlertCircle, CheckCircle } from "lucide-react"
+import { Download, Home, TrendingUp, AlertCircle, CheckCircle, PhilippinePeso } from "lucide-react"
 import { toast, Toaster } from "sonner"
 
 // Services
@@ -83,7 +83,7 @@ export default function ReportsPage() {
 
   // Format Helpers
   const formatCurrency = (val: any) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(val || 0));
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(val || 0));
   }
 
   return (
@@ -121,7 +121,7 @@ export default function ReportsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Total Revenue (YTD)</p>
+                  <p className="text-sm font-medium text-slate-600">Total Revenue</p>
                   <p className="text-2xl font-bold text-emerald-600">
                     {loading ? "..." : formatCurrency(revenueStats?.total_revenue)}
                   </p>
@@ -130,7 +130,7 @@ export default function ReportsPage() {
                     {revenueStats?.completed_transactions || 0} Transactions
                   </div>
                 </div>
-                <DollarSign className="w-8 h-8 text-emerald-600" />
+                <PhilippinePeso className="w-8 h-8 text-emerald-600" />
               </div>
             </CardContent>
           </Card>
@@ -208,7 +208,7 @@ export default function ReportsPage() {
                   <BarChart data={monthlyRevenue}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month_name" tickFormatter={(val) => val.substring(0, 3)} />
-                    <YAxis tickFormatter={(val) => `$${val / 1000}k`} />
+                    <YAxis tickFormatter={(val) => `₱${val / 1000}k`} />
                     <Tooltip formatter={(value) => formatCurrency(value)} />
                     <Bar dataKey="revenue" fill="#10b981" name="Revenue" radius={[4, 4, 0, 0]} />
                   </BarChart>

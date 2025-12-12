@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Edit, Calendar, DollarSign, FileText, AlertTriangle, Ban, Trash2 } from "lucide-react"
+import { Search, Plus, Edit, Calendar, DollarSign, FileText, AlertTriangle, Ban, Trash2, PhilippinePeso } from "lucide-react"
 import { toast, Toaster } from "sonner"
 
 // Services & Components
@@ -196,9 +196,9 @@ export default function LeasesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600">Monthly Revenue</p>
-                  <p className="text-2xl font-bold text-slate-900">${totalRevenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-slate-900">₱{totalRevenue.toLocaleString()}</p>
                 </div>
-                <DollarSign className="w-8 h-8 text-emerald-600" />
+                <PhilippinePeso className="w-8 h-8 text-emerald-600" />
               </div>
             </CardContent>
           </Card>
@@ -284,8 +284,8 @@ export default function LeasesPage() {
 
                       {/* Column 4: Financials */}
                       <div>
-                        <p className="text-sm font-medium text-slate-900">${lease.rent_amount}/mo</p>
-                        <p className="text-sm text-slate-600">Dep: ${lease.security_deposit}</p>
+                        <p className="text-sm font-medium text-slate-900">₱{lease.rent_amount}/mo</p>
+                        <p className="text-sm text-slate-600">Dep: ₱{lease.security_deposit}</p>
                       </div>
 
                       {/* Column 5: Status */}

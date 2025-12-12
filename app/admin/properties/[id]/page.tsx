@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
     Building2, Plus, Search, Edit, Trash2, ArrowLeft,
-    MapPin, Home, DoorOpen, Users, Calendar
+    MapPin, Home, DoorOpen, Users, Calendar,
+    PhilippinePeso
 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
@@ -246,8 +247,8 @@ export default function PropertyUnitsPage() {
                     <Card>
                         <CardContent>
                             <div className="flex items-center justify-between">
-                                <div><p className="text-sm text-muted-foreground">Monthly Revenue</p><p className="text-2xl font-bold text-primary">${property?.monthly_revenue?.toLocaleString() || 0}</p></div>
-                                <div className="h-8 w-8 text-primary font-bold text-2xl flex items-center justify-center">$</div>
+                                <div><p className="text-sm text-muted-foreground">Monthly Revenue</p><p className="text-2xl font-bold text-primary">₱{property?.monthly_revenue?.toLocaleString() || 0}</p></div>
+                                <div className="h-8 w-8 text-primary font-bold text-2xl flex items-center justify-center"><PhilippinePeso /></div>
                             </div>
                         </CardContent>
                     </Card>
@@ -299,7 +300,7 @@ export default function PropertyUnitsPage() {
                                 <div className="grid grid-cols-2 gap-3 text-sm">
                                     <div><p className="text-muted-foreground">Bedrooms</p><p className="font-semibold">{unit.bedrooms || '-'}</p></div>
                                     <div><p className="text-muted-foreground">Bathrooms</p><p className="font-semibold">{unit.bathrooms || '-'}</p></div>
-                                    <div><p className="text-muted-foreground">Rent</p><p className="font-semibold">${unit.rent_amount.toLocaleString()}</p></div>
+                                    <div><p className="text-muted-foreground">Rent</p><p className="font-semibold">₱{unit.rent_amount.toLocaleString()}</p></div>
                                 </div>
 
                                 {unit.status === 'occupied' && (

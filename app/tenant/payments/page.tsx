@@ -168,7 +168,7 @@ export default function TenantPaymentsPage() {
                         : `Payment Due in ${daysUntilDue} days`}
                     </h3>
                     <p className={`text-sm ${daysUntilDue < 0 ? 'text-red-600' : 'text-orange-600'}`}>
-                      ${upcomingPayment.amount} rent due on {new Date(upcomingPayment.due_date).toLocaleDateString()}
+                      ₱{upcomingPayment.amount} rent due on {new Date(upcomingPayment.due_date).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export default function TenantPaymentsPage() {
                       <div className="p-4 bg-muted rounded-lg">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Amount Due:</span>
-                          <span className="text-2xl font-bold">${upcomingPayment.amount}</span>
+                          <span className="text-2xl font-bold">₱{upcomingPayment.amount}</span>
                         </div>
                         <div className="flex justify-between items-center mt-2">
                           <span className="text-sm text-muted-foreground">Property:</span>
@@ -244,7 +244,7 @@ export default function TenantPaymentsPage() {
                         onClick={handlePayNow}
                         disabled={processing}
                       >
-                        {processing ? "Processing..." : `Pay $${upcomingPayment.amount}`}
+                        {processing ? "Processing..." : `Pay ₱${upcomingPayment.amount}`}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -254,7 +254,7 @@ export default function TenantPaymentsPage() {
           </Card>
         ) : (
           <Card className="mb-8 border-green-200 bg-green-50">
-            <CardContent className="pt-6 flex items-center gap-3">
+            <CardContent className=" flex items-center gap-3">
               <CheckCircle className="h-6 w-6 text-green-600" />
               <div>
                 <h3 className="font-semibold text-green-800">You're all caught up!</h3>
@@ -272,7 +272,7 @@ export default function TenantPaymentsPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${paymentStats.totalPaid.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₱{paymentStats.totalPaid.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">All time payments</p>
             </CardContent>
           </Card>
@@ -294,7 +294,7 @@ export default function TenantPaymentsPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${paymentStats.averagePayment.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₱{paymentStats.averagePayment.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Monthly average</p>
             </CardContent>
           </Card>
@@ -336,7 +336,7 @@ export default function TenantPaymentsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-lg">${payment.amount}</p>
+                    <p className="font-semibold text-lg">₱{payment.amount}</p>
                     <Badge variant="outline" className={getStatusColor(payment.status)}>
                       {payment.status}
                     </Badge>

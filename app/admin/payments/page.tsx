@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, DollarSign, AlertCircle, CheckCircle, Clock, Edit, Trash2 } from "lucide-react"
+import { Search, Plus, DollarSign, AlertCircle, CheckCircle, Clock, Edit, Trash2, PhilippinePeso } from "lucide-react"
 import { toast, Toaster } from "sonner"
 
 // Services & Components
@@ -160,10 +160,10 @@ export default function PaymentsPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-600">Total Collected</p>
                   <p className="text-2xl font-bold text-emerald-600">
-                    ${Number(stats?.total_collected || 0).toLocaleString()}
+                    ₱{Number(stats?.total_collected || 0).toLocaleString()}
                   </p>
                 </div>
-                <DollarSign className="w-8 h-8 text-emerald-600" />
+                <PhilippinePeso className="w-8 h-8 text-emerald-600" />
               </div>
             </CardContent>
           </Card>
@@ -173,7 +173,7 @@ export default function PaymentsPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-600">Outstanding/Late</p>
                   <p className="text-2xl font-bold text-red-600">
-                    ${Number(stats?.total_outstanding || 0).toLocaleString()}
+                    ₱{Number(stats?.total_outstanding || 0).toLocaleString()}
                   </p>
                 </div>
                 <AlertCircle className="w-8 h-8 text-red-600" />
@@ -199,7 +199,7 @@ export default function PaymentsPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-600">Total Late Fees</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    ${Number(stats?.total_late_fees || 0).toLocaleString()}
+                    ₱{Number(stats?.total_late_fees || 0).toLocaleString()}
                   </p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-emerald-600" />
@@ -263,8 +263,8 @@ export default function PaymentsPage() {
 
                     {/* Column 2: Amount */}
                     <div>
-                      <p className="text-lg font-bold text-slate-900">${payment.amount.toLocaleString()}</p>
-                      <p className="text-sm text-slate-600">Rent (${payment.rent_amount})</p>
+                      <p className="text-lg font-bold text-slate-900">₱{payment.amount.toLocaleString()}</p>
+                      <p className="text-sm text-slate-600">Rent (₱{payment.rent_amount})</p>
                     </div>
 
                     {/* Column 3: Dates */}
@@ -286,7 +286,7 @@ export default function PaymentsPage() {
                         </Badge>
                       </div>
                       {Number(payment.late_fee) > 0 && (
-                        <p className="text-xs text-red-600 mt-1">+${payment.late_fee} Late Fee</p>
+                        <p className="text-xs text-red-600 mt-1">+₱{payment.late_fee} Late Fee</p>
                       )}
                     </div>
 

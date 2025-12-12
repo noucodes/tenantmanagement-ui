@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner"; // Assuming you use sonner for toasts
 
 export interface TenantFormValues {
     id?: number;
     first_name: string;
     last_name: string;
     email: string;
-    password?: string; // Required for creation
+    password?: string;
     phone: string;
     occupation?: string;
     monthly_income?: string;
@@ -41,14 +42,14 @@ export function TenantDialog({ isOpen, onOpenChange, onSave, editingTenant }: Te
         if (editingTenant) {
             setFormData({
                 ...editingTenant,
-                password: "", // Don't edit password here usually
+                password: "",
             });
         } else {
             setFormData({
                 first_name: "",
                 last_name: "",
                 email: "",
-                password: "", // Reset password for new add
+                password: "",
                 phone: "",
                 occupation: "",
                 monthly_income: "",
@@ -57,8 +58,28 @@ export function TenantDialog({ isOpen, onOpenChange, onSave, editingTenant }: Te
         }
     }, [editingTenant, isOpen]);
 
+    // ✅ New Handler: Only allow numbers and max 11 digits
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+
+        // Regex: Only allow digits (0-9)
+        if (!/^\d*$/.test(value)) return;
+
+        // Limit to 11 characters
+        if (value.length <= 11) {
+            setFormData({ ...formData, phone: value });
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // ✅ Validation: Must be exactly 11 digits
+        if (formData.phone.length !== 11) {
+            toast.error("Phone number must be exactly 11 digits (e.g., 09123456789)");
+            return;
+        }
+
         setLoading(true);
         await onSave(formData);
         setLoading(false);
@@ -106,21 +127,23 @@ export function TenantDialog({ isOpen, onOpenChange, onSave, editingTenant }: Te
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 required
-                                disabled={!!editingTenant} // Often email is immutable or handled differently
+                                disabled={!!editingTenant}
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="phone">Phone</Label>
+                            <Label htmlFor="phone">Phone (11 Digits)</Label>
+                            {/* ✅ Updated Input for Phone */}
                             <Input
                                 id="phone"
                                 value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                onChange={handlePhoneChange} // Use our custom handler
+                                placeholder="09xxxxxxxxx"
                                 required
+                                maxLength={11} // HTML attribute backup
                             />
                         </div>
                     </div>
 
-                    {/* Only show password field when creating a NEW tenant */}
                     {!editingTenant && (
                         <div className="grid gap-2">
                             <Label htmlFor="password">Temporary Password</Label>

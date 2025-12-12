@@ -17,7 +17,8 @@ import {
   ArrowUpRight,
   Loader2,
   CheckCircle,
-  Clock
+  Clock,
+  PhilippinePeso
 } from "lucide-react"
 import { toast, Toaster } from "sonner"
 
@@ -54,7 +55,7 @@ export default function AdminDashboard() {
 
   // Helper to format currency
   const formatCurrency = (val: any) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(val || 0));
+    new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(val || 0));
 
   // Calculate Occupancy Rate safely
   const totalUnits = Number(data?.units?.total || 0);
@@ -124,7 +125,7 @@ export default function AdminDashboard() {
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Revenue (This Month)</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <PhilippinePeso className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600">
@@ -234,7 +235,7 @@ export default function AdminDashboard() {
                     className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex-shrink-0 mt-1">
-                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <PhilippinePeso className="h-4 w-4 text-green-600" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground">
@@ -258,7 +259,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions Grid */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>Jump to common management tasks</CardDescription>
@@ -295,7 +296,7 @@ export default function AdminDashboard() {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   )
 }

@@ -33,7 +33,6 @@ export type PropertyFormValues = {
     city: string;
     state: string;
     zipcode?: string;
-    owner_name: string;
     description?: string;
 };
 
@@ -60,7 +59,6 @@ export function AddPropertyDialog({
             city: "",
             state: "",
             zipcode: "",
-            owner_name: "",
             description: "",
         },
     });
@@ -77,7 +75,6 @@ export function AddPropertyDialog({
                 city: "",
                 state: "",
                 zipcode: "",
-                owner_name: "",
                 description: "",
             });
         }
@@ -158,22 +155,6 @@ export function AddPropertyDialog({
                             />
                         </div>
 
-                        {/* Owner Name */}
-                        <FormField
-                            control={form.control}
-                            name="owner_name"
-                            rules={{ required: "Owner name is required" }}
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Owner Name</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Enter owner name" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
                         {/* Address */}
                         <FormField
                             control={form.control}
@@ -213,9 +194,9 @@ export function AddPropertyDialog({
                                 rules={{ required: "State is required" }}
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>State</FormLabel>
+                                        <FormLabel>Province</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Enter state" {...field} />
+                                            <Input placeholder="Enter province" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

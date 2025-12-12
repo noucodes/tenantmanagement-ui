@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { FileText, DollarSign, Bell, Settings, Home, CreditCard, AlertCircle, Loader2, CheckCircle } from "lucide-react"
+import { FileText, DollarSign, Bell, Settings, Home, CreditCard, AlertCircle, Loader2, CheckCircle, PhilippinePeso } from "lucide-react"
 import { ButtonLogout } from "@/components/tenant/logout" // Assuming you have this component
 import { toast, Toaster } from "sonner"
 
@@ -52,7 +52,7 @@ export default function TenantDashboard() {
 
   // Helper: Format Currency
   const formatCurrency = (val: any) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(val || 0))
+    new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(val || 0))
 
   // Helper: Calculate Lease Progress
   const calculateLeaseProgress = () => {
@@ -162,7 +162,7 @@ export default function TenantDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Current Rent</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <PhilippinePeso className="h-5 w-5 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -198,11 +198,11 @@ export default function TenantDashboard() {
             <CardDescription>Common tenant tasks</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Button asChild className="h-auto p-4 flex flex-col items-center space-y-2">
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+              <Button asChild variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2">
                 <Link href="/tenant/payments">
                   <CreditCard className="h-6 w-6" />
-                  <span>Pay Rent</span>
+                  <span>View Rent</span>
                 </Link>
               </Button>
               <Button
@@ -215,16 +215,6 @@ export default function TenantDashboard() {
                   <span>View Lease</span>
                 </Link>
               </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent"
-              >
-                <Link href="/tenant/profile">
-                  <Settings className="h-6 w-6" />
-                  <span>Profile Settings</span>
-                </Link>
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -234,7 +224,7 @@ export default function TenantDashboard() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
+                <PhilippinePeso className="h-5 w-5 text-green-600" />
                 <span>Recent Payments</span>
               </CardTitle>
             </CardHeader>

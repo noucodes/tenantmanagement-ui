@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Edit, Trash2, Home, Phone, Mail, Calendar, DollarSign, User } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Home, Phone, Mail, Calendar, DollarSign, User, PhilippinePeso } from "lucide-react"
 import { toast, Toaster } from "sonner"
 
 import { tenantService } from "@/services/tenantService"
@@ -237,9 +237,9 @@ export default function TenantsPage() {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <DollarSign className="w-4 h-4 text-slate-400" />
+                          <PhilippinePeso className="w-4 h-4 text-slate-400" />
                           <span className="text-slate-600">
-                            {tenant.current_rent ? `$${tenant.current_rent}/mo` : "-"}
+                            {tenant.current_rent ? `${tenant.current_rent}/mo` : "-"}
                           </span>
                         </div>
                       </div>

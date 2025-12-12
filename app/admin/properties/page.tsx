@@ -204,7 +204,7 @@ export default function PropertiesPage() {
                     <div>
                       <div className="text-sm text-muted-foreground">Revenue</div>
                       <div className="text-lg font-semibold">
-                        ${(property.monthly_revenue || 0).toLocaleString()}
+                        ₱{(property.monthly_revenue || 0).toLocaleString()}
                       </div>
                     </div>
                     <div className="text-right">

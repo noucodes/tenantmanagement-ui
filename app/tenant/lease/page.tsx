@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, FileText, Download, Calendar, DollarSign, Home, User, Clock, Loader2, MapPin } from "lucide-react"
+import { ArrowLeft, FileText, Download, Calendar, DollarSign, Home, User, Clock, Loader2, MapPin, PhilippinePeso } from "lucide-react"
 import { toast, Toaster } from "sonner"
 
 // Services
@@ -176,7 +176,7 @@ export default function LeaseInfoPage() {
                 <div className="flex items-start mt-1">
                   <MapPin className="h-4 w-4 mr-1 text-muted-foreground mt-1" />
                   <p className="text-base">
-                    {lease.address}<br />
+                    {lease.address}
                     {lease.city}, {lease.state} {lease.zip_code}
                   </p>
                 </div>
@@ -215,7 +215,7 @@ export default function LeaseInfoPage() {
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <DollarSign className="h-5 w-5" />
+              <PhilippinePeso className="h-5 w-5" />
               <span>Financial Terms</span>
             </CardTitle>
           </CardHeader>
@@ -223,11 +223,11 @@ export default function LeaseInfoPage() {
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center p-4 border rounded-lg bg-slate-50">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Monthly Rent</p>
-                <p className="text-2xl font-bold text-primary">${Number(lease.rent_amount).toLocaleString()}</p>
+                <p className="text-2xl font-bold text-primary">₱{Number(lease.rent_amount).toLocaleString()}</p>
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Security Deposit</p>
-                <p className="text-2xl font-bold">${Number(lease.security_deposit).toLocaleString()}</p>
+                <p className="text-2xl font-bold">₱{Number(lease.security_deposit).toLocaleString()}</p>
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Payment Day</p>
